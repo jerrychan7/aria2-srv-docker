@@ -7,12 +7,12 @@ ARG ARIA2_VER=
 ENV PUID=1000 \
     PGID=1000 \
     UMASK=022 \
-    SECRET= \
+    RPC_SECRET= \
     RPC_PORT=6800 \
     BT_PORT=6888 \
     DHT_PORT= \
     WEAK_DEVICE=false \
-    FILE_ALLOCATION=prealloc \
+    FILE_ALLOCATION=none \
     IPV6_MODE=false \
     TZ=Asia/Shanghai \
     UPDATE_TRACKERS=true \
@@ -28,8 +28,9 @@ ENV PUID=1000 \
 RUN set -ex \
  && sed "s@\(alpinelinux.org\/alpine\/\).*\/@\1edge\/@" /etc/apk/repositories >> /etc/apk/repositories \
  && apk update \
- && apk add --upgrade aria2=${ARIA2_VER:-`apk search aria2 | sed -n 1p | sed "s@aria2-\(.*\)@\1@"`} curl bash \
- && rm -rf /var/cache/apk/* /tmp/*
+ && apk add --upgrade aria2=${ARIA2_VER:-`apk search aria2 | sed -n "1s@aria2-\(.*\)@\1@p"`} curl bash jq findutils \
+ && rm -rf /var/cache/apk/* /tmp/* \
+ && sed -i "s@\(^root:.*\)/ash@\1/bash@" /etc/passwd
 
 COPY --chmod=777 setup/ /
 

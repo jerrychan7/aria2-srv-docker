@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-. /utils.sh
+. /const.sh
 LOGI "Checking..."
 LOGI $(aria2c --version)
 
@@ -32,11 +32,12 @@ egrep "^([^:]*:){2}${PUID}:" /etc/passwd &> /dev/null && {
   # USRNAME=`egrep "^([^:]*:){2}${PUID}:" /etc/passwd | sed "s@\([^:]*\):[^:]*:${PUID}:.*@\1@"`
   USRNAME=`getent passwd ${PUID} | cut -d: -f1`
   adduser ${USRNAME} ${GRPNAME}
+  # sed -i "s@\([^:]*:[^:]*:${PUID}:[^:]*:[^:]*:[^:]*:\).*@\1/bin/bash@" /etc/passwd
 } || {
   [ ${PUID} -le 999 ] && {
-    adduser -H -D -S -G ${GRPNAME} -u ${PUID} ${USRNAME}
+    adduser -H -D -S -G ${GRPNAME} -s /bin/bash -u ${PUID} ${USRNAME}
   } || {
-    adduser -H -D -G ${GRPNAME} -u ${PUID} ${USRNAME}
+    adduser -H -D -G ${GRPNAME} -s /bin/bash -u ${PUID} ${USRNAME}
   }
 }
 
@@ -59,32 +60,38 @@ umask ${UMASK}
 }
 LOGI "group=${GRPNAME}(${PGID}) user=${USRNAME}(${PUID}) umask=${UMASK} TZ=${TZ}"
 
-mkdir -p /downloads
-mkdir -p /config
+mkdir -p ${DOWNLOAD_DIR}
+# mkdir -p ${ARIA2_CONF_DIR}
+mkdir -p ${SCRIPT_DIR}
 # 修复权限
-chown -R ${USRNAME}:${GRPNAME} /config
-if [ -w /downloads ]; then LOGI "Download DIR writeable, not changing owner.";
-else chown -R ${USRNAME}:${GRPNAME} /downloads; fi
+chown -R ${USRNAME}:${GRPNAME} ${ARIA2_CONF_DIR}
+# if [ -w ${DOWNLOAD_DIR} ]; then LOGI "Download DIR writeable, not changing owner.";
+# else chown -R ${USRNAME}:${GRPNAME} ${DOWNLOAD_DIR}; fi
+chown -R ${USRNAME}:${GRPNAME} ${DOWNLOAD_DIR};
 if [[ ${PUID} = 65534 || ${PGID} = 65533 ]]; then
   LOGW "Ignore permission settings."
-  chmod -vR 777 /config
-  chmod -vR 777 /downloads
+  chmod -vR 777 ${ARIA2_CONF_DIR}
+  chmod -vR 777 ${DOWNLOAD_DIR}
 else
-  if [ -w /downloads ]; then LOGI "Download DIR writeable, not modifying permission.";
-  else chmod -v u=rwx /downloads;fi
-  if [ -f "/config/aria2.conf" ]; then
-    chmod -v 644 /config/*
-    chmod -v 744 /config/*.sh
-    chmod -v 744 /config/core
+  # if [ -w ${DOWNLOAD_DIR} ]; then LOGI "Download DIR writeable, not modifying permission.";
+  # else chmod -v u=rwx ${DOWNLOAD_DIR};fi
+  chmod -v u=rwx ${DOWNLOAD_DIR};
+  if [ -f "${ARIA2_CONF}" ]; then
+    chmod -v 644 ${ARIA2_CONF_DIR}/*
+    chmod -v 755 ${SCRIPT_DIR}
+    chmod -v 744 ${SCRIPT_DIR}/*
   fi
 fi
 
+[[ "${FILE_ALLOCATION}" = "none" || "${FILE_ALLOCATION}" = "prealloc" || "${FILE_ALLOCATION}" = "trunc" || "${FILE_ALLOCATION}" = "falloc" ]] ||
+  FILE_ALLOCATION="prealloc"
 [[ "${UPDATE_TRACKERS:-true}" = "true" ]] && {
-  echo "0 * * * * bash /config/tracker.sh /config/aria2.conf RPC 2>&1 | tee /config/tracker.log" > /etc/crontabs/${USRNAME}
+  rm -rf /etc/crontabs/root
+  echo "0 * * * * bash ${SCRIPT_DIR}/tracker.sh ${ARIA2_CONF} RPC 2>&1 | tee ${ARIA2_CONF_DIR}/tracker.log" > /etc/crontabs/${USRNAME}
   crond
 }
 
 export GRPNAME USRNAME PUID PGID UMASK TZ
 
 # 以用户权限运行脚本
-su -p -s /bin/sh ${USRNAME} -c "/main.sh"
+su -p -s /bin/bash ${USRNAME} -c "/main.sh"

@@ -20,8 +20,8 @@
 * [x] 随机初始化token（可手动）
 * [x] 自动更新tracker
 * [ ] 在保存磁链为种子时更名
-* [ ] 删除未完成任务时自动删除没下载完的文件
-* [ ] 自动删除.aria2控制文件
+* [x] 删除未完成任务时自动删除没下载完的文件
+* [x] 自动删除.aria2控制文件
 * [ ] 回收站
 * [ ] 检测重复任务
 * [ ] 解除aria2的单服务器线程数最大值限制，参考[johngong/aria2](https://github.com/gshang2017/docker/tree/master/aria2)的镜像构建时编译。
@@ -49,16 +49,16 @@ $ docker run -d \
 |---|---|---|
 |`PUID`<br/>`PGID`|绑定UID和GID到容器。你可以使用非管理员用户来管理下载的文件。值为空时，`PUID=65534 (nobody) PGID=65533 (nogroup)`|`1000`<br/>`1000`|
 |`UMASK`|aira2的umask设置，值为空时会根据`PUID`和`PGID`来判断。|`022`|
-|`SECRET`|RPC密钥|随机的UUID|
+|`RPC_SECRET`|RPC密钥|随机的UUID|
 |`RPC_PORT`|RPC监听的端口，对应配置文件中的 `rpc-listen-port`|`6800`|
 |`BT_PORT`|BitTorrent监听端口，对应配置文件中的 `listen-port`|`6888`|
 |`DHT_PORT`|DHT监听端口，对应配置文件中的 `dht-listen-port`|和`BT_PORT`一致|
 |`IPV6_MODE`|是否开启Aria2的IPv6支持。（对应配置文件中的`disable-ipv6`和`enable-dht6`字段）。|`false`|
-|`FILE_ALLOCATION`|文件预分配方式, 可选：`none`, `prealloc`, `trunc`, `falloc`。若出现错误提示`fallocate failed. cause：Operation not supported`则说明硬盘不支持此分配方式，需要更换。|`prealloc`|
+|`FILE_ALLOCATION`|文件预分配方式, 可选：`none`, `prealloc`, `trunc`, `falloc`。若出现错误提示`fallocate failed. cause：Operation not supported`则说明硬盘不支持此分配方式，需要更换。|`none`|
 |`TZ`|系统时区设置|`Asia/Shanghai`|
 |`UPDATE_TRACKERS`|自动更新trackers|`true`|
 |`CUSTOM_TRACKER_URL`|trackers的更新地址|`https://trackerslist.com/all_aria2.txt`|
-|`WEAK_DEVICE`|是否降低配置（参考下面注意2）|`false`|
+|`WEAK_DEVICE`|是否降低配置（用于性能羸弱设备，参考下面注意2）|`false`|
 
 |卷路径|说明|
 |---|---|
@@ -89,16 +89,14 @@ $ docker run -d \
  2. 由于树莓派一代性能太差，因此默认生成的配置文件里很多配置都调小了，特别是有关线程的，线程数太多会导致运行时RPC端口无响应。具体的调整如下表所示，如果宿主机性能好，可以适当调大。  
     |字段|调整值|原始值<br/>(来自[P3TERX/aria2.conf](https://github.com/P3TERX/aria2.conf))|
     |---|---|---|
-    |`disk-cache`|`16M`|`64M`|
-    |`no-file-allocation-limit`|`16M`|`64M`|
-    |`max-connection-per-server`|`1`|`16`
-    |`split`|`1`|`64`|
-    |`min-split-size`|`16M`|`4M`|
+    |`max-connection-per-server`|`2`|`16`|
+    |`split`|`2`|`64`|
+    |`min-split-size`|`64M`|`4M`|
     |`bt-max-peers`|`55`|`128`|
     |`bt-request-peer-speed-limit`|`2M`|`10M`|
     |`max-overall-upload-limit`|`1536K`|`2M`|
     |`max-concurrent-downloads`|`3`|`5`|
- 3. 生成默认配置文件时会自动生成一个随机的 UUID 作为 RPC 密钥。可以使用 `grep -E '^rpc-secret=' [配置文件目录]/aria2.conf` 查询。为了方便用户，在运行日志中也有输出。
+ 3. 生成默认配置文件时会自动生成一个随机的 UUID 作为 RPC 密钥。可以使用 `grep -E '^rpc-secret=' [配置文件目录]/aria2.conf` 查询。为了方便用户，在运行日志中也有输出~~（说好的安全呢）~~。
  4. 配置文件目录中 **包含重要的敏感信息**（如 RPC 密钥、代理服务器密码等），建议合理设置目录权限以避免泄密。
  5. 新建下载任务或设置配置文件中的下载目录时，请不要设置到 `/downloads` 目录外，否则将无法在宿主机实际下载目录中找到。
  6. 在较新的docker中`--network host`可以快速开启容器对IPv6的支持，在Windows、MacOS中则只能用`bridge`模式。`bridge`模式下开启容器对IPv6的支持请参考其他教程。
